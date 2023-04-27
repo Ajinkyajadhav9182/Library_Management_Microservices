@@ -1,4 +1,4 @@
-package com.User.services;
+package com.User.repos;
 
 import com.User.entity.IssueBook;
 import org.springframework.data.mongodb.repository.MongoRepository;
