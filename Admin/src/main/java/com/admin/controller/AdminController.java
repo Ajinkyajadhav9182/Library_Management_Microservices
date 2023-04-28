@@ -3,12 +3,20 @@ package com.admin.controller;
 import com.admin.entity.GetSetBooks;
 
 import com.admin.entity.GetBooks1;
+import com.admin.model.JwtRequest;
+import com.admin.model.JwtResponse;
 import com.admin.repos.BooksRepositiry;
 import com.admin.repos.GetBooks;
 import com.admin.services.AdminOperation;
 import com.admin.services.SequenceGeneratorService;
+import com.admin.services.UserService;
+import com.admin.utility.JWTUtility;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.*;
+import org.springframework.security.authentication.AuthenticationManager;
+import org.springframework.security.authentication.BadCredentialsException;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.client.RestTemplate;
 
@@ -32,6 +40,34 @@ public class AdminController {
     private RestTemplate restTemplate;
     @Autowired
     private AdminOperation adOperation;
+    @Autowired
+    private JWTUtility jwtUtility;
+    @Autowired
+    private AuthenticationManager authenticationManager;
+    @Autowired
+    private UserService userService;
+
+    @PostMapping("/authenticate")
+    public JwtResponse authenticate(@RequestBody JwtRequest jwtRequest) throws Exception {
+        try {
+            authenticationManager.authenticate(
+                    new UsernamePasswordAuthenticationToken(
+                            jwtRequest.getUsername(),
+                            jwtRequest.getPassword()
+                    )
+            );
+        } catch (BadCredentialsException e) {
+            throw new Exception("INVALID_CREDENTIALS", e);
+        }
+
+        final UserDetails userDetails
+                = userService.loadUserByUsername(jwtRequest.getUsername());
+
+        final String token =
+                jwtUtility.generateToken(userDetails);
+
+        return new JwtResponse(token);
+    }
 
     @GetMapping("/bookid/{bookid}")
     public List<?> getBooks(@PathVariable("bookid") int id) {
@@ -61,7 +97,7 @@ public class AdminController {
     @GetMapping("/showAll")
     public ResponseEntity<List<GetSetBooks>> showAll() {
         if (this.booksRepositiry.findAll().size() == 0) {
-            return new ResponseEntity("Books Not Available", HttpStatus.NOT_FOUND);
+            return new ResponseEntity("Books Not Available...", HttpStatus.NOT_FOUND);
         }
         return ResponseEntity.ok(this.booksRepositiry.findAll());
     }
@@ -89,11 +125,10 @@ public class AdminController {
     public ResponseEntity<GetSetBooks> showSingle(@PathVariable("id") int id) {
         boolean isThere = booksRepositiry.existsById(id);
         if (isThere) {
-            GetSetBooks books = null;
-            books = booksRepositiry.findById(id).get();
+            GetSetBooks books = booksRepositiry.findById(id).get();;
             return ResponseEntity.ok(books);
         }
-        return new ResponseEntity("Book Not Found In The Database", HttpStatus.NOT_FOUND);
+        return new ResponseEntity("Book Not Found In The Database...", HttpStatus.NOT_FOUND);
     }
 
     // update a record
@@ -106,18 +141,19 @@ public class AdminController {
             this.booksRepositiry.save(book1);
             return ResponseEntity.ok(book1);
         }
-        return ResponseEntity.ok("This Id Is Not Present");
+        return ResponseEntity.ok("This Id Is Not Present...");
     }
 
     @GetMapping("/issued")
-    public ResponseEntity<List<?>> issued() {
+    public ResponseEntity<List> issued(@RequestBody String token) {
+        String A = token.substring(15, token.length() - 3);
         HttpHeaders headers = new HttpHeaders();
-        headers.setBasicAuth("abc", "abc");
+        headers.setBearerAuth(A);
         HttpEntity<?> request = new HttpEntity<>(headers);
         ResponseEntity<Object> response = restTemplate.exchange("http://localhost:8080/issuedata", HttpMethod.GET, request, Object.class);
         Object responseBody = response.getBody();
         if (responseBody == null) {
-            return new ResponseEntity("No One Issued Book", HttpStatus.ACCEPTED);
+            return new ResponseEntity("No One Issued Book...", HttpStatus.ACCEPTED);
         }
         return ResponseEntity.ok(Collections.singletonList(Optional.of(responseBody)));
     }

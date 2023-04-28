@@ -21,7 +21,7 @@ public class IssueBook {
     public static final String SEQUENCE_NAME = "user_sequence";
     @Id
     private int id;
-    private int BookId;
+    private int bookId;
     @NotEmpty(message = "Reader Name Should Not Be Null")
     private String readerName;
 
